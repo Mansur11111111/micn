@@ -123,6 +123,11 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <div class="c"><b>Заплати себе первым</b><span>Сразу после дохода откладываете сумму, живёте на остаток.</span></div>
 <div class="c"><b>Метод снежного кома</b><span>Гасите долги от меньшего к большему, чтобы быстро видеть прогресс.</span></div>
 </div>
+<h2>👤 Аккаунт</h2>
+<div class="c"><div class="row" id="lr"><input id="em" type="email" placeholder="Ваш email"><button id="login">Войти по ссылке</button></div>
+<div id="am" class="tip" style="display:none"></div>
+<div class="row" id="ar" style="display:none;margin-top:8px"><button class="g2" id="mng">Управлять подпиской</button><button class="g2" id="out2">Выйти</button></div></div>
+
 <h2>Подписка</h2>
 <div class="g">
 <div class="c"><b>Free</b><div class="pr">0 / мес</div><span>• Учёт трат и способов оплаты<br>• Базовый отчёт и советы<br>• Описание методов</span><button class="g2 sub" data-p="free" style="margin-top:12px;width:100%">Выбрать Free</button></div>
@@ -171,10 +176,16 @@ $("clr").onclick=function(){S={inc:0,tx:[]};save();render()};
 var ai=null,ctl=null;
 try{if(window.claude&&claude.use){claude.use("sample").then(function(s){if(s){ai=s;$("aiBox").style.display="block";$("tools").style.display="block"}}).catch(function(){})}}catch(e){}
 var WORKER_URL='';/* вставьте сюда адрес вашего Cloudflare Worker, например https://micn-ai.ваше-имя.workers.dev */
-function viaWorker(input,o){
- o=o||{};
- var msgs=typeof input=='string'?[{role:'user',content:input}]:input;
- return fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs}),signal:o.signal}).then(function(r){return r.json().then(function(j){if(!r.ok){var e=new Error(j.error||'error');e.code=r.status==429?'rate_limited':'error';throw e}return j})}).then(function(j){if(o.onText)o.onText({text:j.text});return {text:j.text}})
+var SB={url:'',anon:''};/* Supabase: Project URL и anon public key */
+function saveAuth(t,r,e){try{localStorage.setItem('micn_auth',JSON.stringify({t:t,r:r,exp:Date.now()+e*1000}))}catch(x){}}
+(function(){if(location.hash.indexOf('access_token=')>-1){var h=new URLSearchParams(location.hash.slice(1));saveAuth(h.get('access_token'),h.get('refresh_token'),+h.get('expires_in')||3600);history.replaceState(null,'',location.pathname+location.search)}})();
+function tok(){var a=null;try{a=JSON.parse(localStorage.getItem('micn_auth'))}catch(e){}
+ if(!a)return Promise.resolve(null);if(a.exp>Date.now()+60000)return Promise.resolve(a.t);
+ return fetch(SB.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SB.anon,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:a.r})}).then(function(r){return r.json()}).then(function(j){if(!j.access_token){try{localStorage.removeItem('micn_auth')}catch(e){}return null}saveAuth(j.access_token,j.refresh_token,j.expires_in);return j.access_token}).catch(function(){return null})}
+function api(path,body,signal){return tok().then(function(t){if(!t)throw{code:'login'};
+ return fetch(WORKER_URL.replace(/\/$/,'')+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+t},body:JSON.stringify(body||{}),signal:signal}).then(function(r){return r.json().then(function(j){if(!r.ok){var e=new Error(j.error||'error');e.code=r.status==401?'login':j.error=='limit'?'plan_limit':r.status==429?'rate_limited':'error';throw e}return j})})})}
+function viaWorker(input,o){o=o||{};var msgs=typeof input=='string'?[{role:'user',content:input}]:input;
+ return api('/',{messages:msgs},o.signal).then(function(j){if(o.onText)o.onText({text:j.text});refreshMe();return {text:j.text}})
 }
 setTimeout(function(){if(!ai&&WORKER_URL){ai=viaWorker;$('aiBox').style.display='block';$('tools').style.display='block'}},2000);
 $("gen").onclick=function(){
@@ -196,7 +207,7 @@ var plan="free";try{plan=localStorage.getItem("micn_plan")||"free"}catch(e){}
 function showPlan(m){var el=$("subMsg");el.style.display="block";el.textContent=m}
 Array.prototype.forEach.call(document.querySelectorAll(".sub"),function(b){b.onclick=function(){
  plan=b.getAttribute("data-p");try{localStorage.setItem("micn_plan",plan)}catch(e){}
- if(plan=="pro"&&WORKER_URL){showPlan("Открываю страницу оплаты…");fetch(WORKER_URL.replace(/\/$/,"")+"/checkout",{method:"POST"}).then(function(r){return r.json()}).then(function(j){if(j&&j.url)location.href=j.url;else showPlan("Оплата сейчас недоступна, попробуйте позже.")}).catch(function(){showPlan("Оплата сейчас недоступна, попробуйте позже.")});return}
+ if(plan=="pro"&&WORKER_URL){showPlan("Открываю страницу оплаты…");api("/checkout").then(function(j){if(j&&j.url)location.href=j.url;else showPlan("Оплата сейчас недоступна, попробуйте позже.")}).catch(function(e){showPlan(e&&e.code=="login"?"Сначала войдите в аккаунт (раздел «Аккаунт» выше).":"Оплата сейчас недоступна, попробуйте позже.")});return}
  showPlan(plan=="pro"?payText():"Вы выбрали бесплатный тариф Free.")}});
 function base(){var L={auto:'Отвечай на языке, на котором написал пользователь (русский, English или қазақша).',ru:'Отвечай по-русски.',en:'Reply in English.',kk:'Қазақ тілінде жауап бер.'}[LANG]||'';
 var sit={hard:'не хватает денег на основные нужды',tight:'денег хватает, но откладывать не получается',ok:'финансы стабильны'}[S.sit]||'не указана';
@@ -221,7 +232,7 @@ forecast:'Сделай прогноз: если траты продолжатс�
 receipt:'Разбери текст чека или выписки из деталей пользователя: выдели покупки и суммы, определи категории, посчитай итог, отметь подозрительное (двойные списания, комиссии, ненужные подписки) и подскажи, как лучше оплачивать.'};
 var busy=false,hist=[];
 function lock(v){busy=v;Array.prototype.forEach.call(document.querySelectorAll('.tl,#csend'),function(b){b.disabled=v})}
-function errMsg(e){var c=e&&e.code;return c=='not_granted'?'Нужно разрешить доступ к AI.':c=='rate_limited'?'Слишком много запросов, подождите немного.':c=='too_fast'?'Подождите пару секунд и нажмите ещё раз.':c=='limit'?'Лимит 40 запросов в час. Попробуйте позже.':'Не получилось, попробуйте ещё раз.'}
+function errMsg(e){var c=e&&e.code;return c=='not_granted'?'Нужно разрешить доступ к AI.':c=='rate_limited'?'Слишком много запросов, подождите немного.':c=='too_fast'?'Подождите пару секунд и нажмите ещё раз.':c=='login'?'Войдите в аккаунт (раздел «Аккаунт»), чтобы пользоваться AI.':c=='plan_limit'?'Дневной лимит AI исчерпан. Оформите Pro, чтобы продолжить.':c=='limit'?'Лимит 40 запросов в час. Попробуйте позже.':'Не получилось, попробуйте ещё раз.'}
 Array.prototype.forEach.call(document.querySelectorAll('.tl'),function(b){b.onclick=function(){
  if(!ai||busy)return;
  var k=b.getAttribute('data-t'),d=$('tin').value.trim();
@@ -304,6 +315,13 @@ $('bzbtn').onclick=function(){var r=num($('br').value),v=num($('bv').value),fx=n
  fin('🏢 Бизнес: прибыль и денежный поток',[['Выручка',f(r)],['Расходы (перем. + пост.)',f(v+fx)],['Прибыль',f(p)],['Маржа',mg+'%'],['Безубыточность',be===null?'—':f(be)],['Хватит денег на',run===null?'—':run+' мес.']],st,'','Бизнес: выручка '+r+', переменные '+v+', постоянные '+fx+', деньги '+c+', прибыль '+Math.round(p)+', маржа '+mg+'%'+(be!==null?', безубыточность '+Math.round(be):'')+(run!==null?', запас '+run+' мес.':''))};
 var PAY={price:'2 990 ₸',kaspi:'',tg:'',note:'в комментарии укажите ваш email'};/* впишите свои реквизиты: kaspi: номер телефона или карты, tg: @ваш_telegram */
 function payText(){if(!PAY.kaspi&&!PAY.tg)return 'Оплата пока не настроена: владелец сайта ещё не указал реквизиты.';return 'Micn Pro, '+PAY.price+' в месяц. Переведите на Kaspi '+PAY.kaspi+' ('+PAY.note+'), затем напишите в Telegram '+PAY.tg+' и пришлите чек. Доступ откроют вручную после проверки платежа.'}
+function amsg(m){var e=$('am');e.style.display='block';e.textContent=m}
+$('login').onclick=function(){var em=$('em').value.trim();if(!SB.url||!WORKER_URL){amsg('Вход пока не настроен владельцем сайта.');return}if(!em)return;
+ fetch(SB.url+'/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+location.pathname),{method:'POST',headers:{apikey:SB.anon,'Content-Type':'application/json'},body:JSON.stringify({email:em,create_user:true})}).then(function(r){amsg(r.ok?'Ссылка для входа отправлена на '+em+'. Откройте письмо в этом же браузере.':'Не получилось отправить письмо, проверьте email.')}).catch(function(){amsg('Нет связи, попробуйте позже.')})};
+function refreshMe(){if(!WORKER_URL||!SB.url)return;api('/me').then(function(j){amsg(j.email+' · тариф '+(j.plan=='pro'?'Pro':'Free')+' · AI сегодня: '+j.used+'/'+j.limit);$('ar').style.display='flex';$('lr').style.display='none'}).catch(function(){})}
+$('mng').onclick=function(){api('/portal').then(function(j){if(j.url)location.href=j.url}).catch(function(e){amsg(e&&e.code=='login'?errMsg(e):'Подписка не найдена.')})};
+$('out2').onclick=function(){try{localStorage.removeItem('micn_auth')}catch(e){}location.reload()};
+refreshMe();
 $('csend').onclick=send;$('cin').onkeydown=function(e){if(e.key=='Enter')send()};
 render();
 </script>
