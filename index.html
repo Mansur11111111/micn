@@ -67,6 +67,10 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <div class="row" style="margin-top:10px"><button class="g2" id="clr">Очистить всё</button></div>
 </div>
 
+<h2>📈 Панель</h2>
+<div class="c" id="dash"></div>
+<div class="row" style="margin-top:8px"><button class="g2" id="exp">📥 Скачать траты (CSV)</button></div>
+
 <h2>Финансовый отчёт</h2>
 <div class="c" id="rep"></div>
 
@@ -108,6 +112,7 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <div class="row"><input id="sg" type="number" placeholder="Цель, сумма"><input id="ss" type="number" placeholder="Уже накоплено"><input id="sm" type="number" placeholder="Срок, месяцев"><button class="g2" id="sbtn">🎯 Накопления</button></div>
 <textarea id="dl" rows="3" style="margin-top:10px" placeholder="Долги, по одному в строке: название; остаток; ставка % в год; мин. платёж"></textarea>
 <div class="row" style="margin-top:8px"><input id="dx" type="number" placeholder="Доплата сверх минимума в месяц"><button class="g2" id="dbtn">📉 Долги</button><button class="g2" id="bbtn">💰 Бюджет</button></div>
+<div class="row" style="margin-top:8px"><input id="br" type="number" placeholder="Выручка в месяц"><input id="bv" type="number" placeholder="Переменные расходы"><input id="bf" type="number" placeholder="Постоянные расходы"><input id="bc" type="number" placeholder="Деньги на счёте"><button class="g2" id="bzbtn">🏢 Бизнес</button></div>
 <div id="res"></div>
 </div>
 
@@ -135,7 +140,7 @@ function f(n){return Math.round(n).toLocaleString("ru-RU")}
 function by(key){var o={};S.tx.forEach(function(t){o[t[key]]=(o[t[key]]||0)+t.a});return o}
 function render(){
  $("inc").value=S.inc||"";
- $("ls").innerHTML=S.tx.slice().reverse().slice(0,6).map(function(t){return '<div class="it"><span>'+esc(t.d)+' · '+t.k+' · '+t.p+'</span><b>'+f(t.a)+'</b></div>'}).join("");
+ $("ls").innerHTML=S.tx.map(function(t,i){return[t,i]}).reverse().slice(0,10).map(function(p){var t=p[0];return '<div class="it"><span>'+esc(t.d)+' · '+t.k+' · '+t.p+'</span><span><b>'+f(t.a)+'</b> <button class="g2" data-del="'+p[1]+'" style="padding:2px 8px">✕</button></span></div>'}).join("");
  var sum=S.tx.reduce(function(s,t){return s+t.a},0);
  if(!S.tx.length){$("rep").innerHTML='<span style="color:var(--mu)">Добавьте первую трату, и здесь появится отчёт.</span>';$("adv").innerHTML='<span style="color:var(--mu)">Советы появятся после первых трат.</span>';return}
  var k=by("k"),p=by("p"),h='<div class="tot"><div><small>Всего потрачено</small><strong>'+f(sum)+'</strong></div>';
@@ -277,6 +282,26 @@ $('sgo').onclick=function(){var q=$('sq').value.trim(),b=$('sgo');if(!q)return;i
   else if(j&&j.tool=='budget')ok=showBudget();
   if(!ok){var e=document.createElement('div');e.className='tip ai';e.textContent=(a.reply&&String(a.reply))||'Мне не хватает данных. Укажите суммы, ставки и сроки, или используйте ручные калькуляторы.';$('res').innerHTML='';$('res').appendChild(e)}
  }).catch(function(e){$('res').innerHTML='<div class="tip w2">'+errMsg(e)+'</div>'}).then(function(){b.disabled=false})};
+function dash(){var sum=S.tx.reduce(function(a,t){return a+t.a},0),k=by('k'),inc=S.inc||0,left=inc-sum,rate=inc?Math.round(left/inc*100):null;
+ var cols=['#5b5bf0','#18c29c','#f5a524','#e5484d','#8e4ec6','#0091ff'],names=Object.keys(k).sort(function(a,b){return k[b]-k[a]});
+ var h='<div class="tot"><div><small>Доход</small><strong>'+f(inc)+'</strong></div><div><small>Расходы</small><strong>'+f(sum)+'</strong></div><div><small>Остаток</small><strong style="color:'+(left<0?'var(--bad)':'var(--ac2)')+'">'+f(left)+'</strong></div><div><small>Норма сбережений</small><strong>'+(rate===null?'—':rate+'%')+'</strong></div></div>';
+ if(sum){var C=2*Math.PI*40,off=0,arcs=names.map(function(n,i){var l=k[n]/sum*C,a='<circle r="40" cx="60" cy="60" fill="none" stroke="'+cols[i%6]+'" stroke-width="22" stroke-dasharray="'+l+' '+(C-l)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 60 60)"/>';off+=l;return a}).join('');
+  h+='<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:14px"><svg viewBox="0 0 120 120" width="150" height="150">'+arcs+'</svg><div>'+names.map(function(n,i){return '<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+cols[i%6]+'"></span> '+n+' '+Math.round(k[n]/sum*100)+'%</div>'}).join('')+'</div></div>'}
+ else h+='<p style="color:var(--mu)">Добавьте траты, и здесь появится диаграмма.</p>';
+ $('dash').innerHTML=h}
+var _r=render;render=function(){_r();dash()};
+$('ls').onclick=function(e){var i=e.target.getAttribute&&e.target.getAttribute('data-del');if(i!=null){S.tx.splice(+i,1);save();render()}};
+$('exp').onclick=function(){var rows=[['Описание','Сумма','Категория','Оплата']].concat(S.tx.map(function(t){return[t.d,t.a,t.k,t.p]}));
+ var csv='\ufeff'+rows.map(function(r){return r.map(function(c){var v=String(c);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'}).join(',')}).join('\r\n');
+ var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='micn-expenses.csv';a.click()};
+$('bzbtn').onclick=function(){var r=num($('br').value),v=num($('bv').value),fx=num($('bf').value),c=num($('bc').value);if(r<=0){$('res').innerHTML='<div class="tip w2">Укажите выручку за месяц.</div>';return}
+ var p=r-v-fx,mg=Math.round(p/r*100),cm=(r-v)/r,be=cm>0?fx/cm:null,burn=v+fx-r,run=burn>0&&c>0?Math.floor(c/burn):null,st=[];
+ st.push(p<0?'Бизнес в убытке '+f(-p)+' в месяц. Первым делом сократите постоянные расходы или поднимите цены.':'Прибыль '+f(p)+' в месяц, маржа '+mg+'%.');
+ if(be!==null)st.push('Точка безубыточности: выручка '+f(be)+' в месяц'+(r<be?', сейчас вы ниже неё.':'.'));
+ if(run!==null)st.push('Денег хватит примерно на '+run+' мес. при таких расходах. Создайте запас хотя бы на 3 месяца.');
+ else if(burn>0)st.push('Резерва денег нет при убыточной работе: риск кассового разрыва.');
+ else st.push('Откладывайте часть прибыли в резерв на 3 месяца расходов.');
+ fin('🏢 Бизнес: прибыль и денежный поток',[['Выручка',f(r)],['Расходы (перем. + пост.)',f(v+fx)],['Прибыль',f(p)],['Маржа',mg+'%'],['Безубыточность',be===null?'—':f(be)],['Хватит денег на',run===null?'—':run+' мес.']],st,'','Бизнес: выручка '+r+', переменные '+v+', постоянные '+fx+', деньги '+c+', прибыль '+Math.round(p)+', маржа '+mg+'%'+(be!==null?', безубыточность '+Math.round(be):'')+(run!==null?', запас '+run+' мес.':''))};
 $('csend').onclick=send;$('cin').onkeydown=function(e){if(e.key=='Enter')send()};
 render();
 </script>
