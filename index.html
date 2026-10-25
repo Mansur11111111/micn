@@ -71,6 +71,12 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <div class="c" id="dash"></div>
 <div class="row" style="margin-top:8px"><button class="g2" id="exp">📥 Скачать траты (CSV)</button></div>
 
+<h2>🎯 Мои цели</h2>
+<div class="c">
+<div class="row"><input id="gn" placeholder="Цель, например: подушка безопасности"><input id="gt" type="number" min="1" placeholder="Сколько нужно"><input id="gs" type="number" min="0" placeholder="Уже накоплено"><button id="gadd">Добавить цель</button></div>
+<div id="gl"></div>
+</div>
+
 <h2>Финансовый отчёт</h2>
 <div class="c" id="rep"></div>
 
@@ -172,7 +178,7 @@ function render(){
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 $("setInc").onclick=function(){S.inc=+$("inc").value||0;save();render()};
 $("add").onclick=function(){var a=+$("a").value;if(!a||a<=0)return;S.tx.push({d:$("d").value||"Без названия",a:a,k:$("k").value,p:$("p").value});$("d").value="";$("a").value="";save();render()};
-$("clr").onclick=function(){S={inc:0,tx:[]};save();render()};
+$("clr").onclick=function(){S={inc:0,tx:[],goals:S.goals||[],sit:S.sit};save();render()};
 var ai=null,ctl=null;
 try{if(window.claude&&claude.use){claude.use("sample").then(function(s){if(s){ai=s;$("aiBox").style.display="block";$("tools").style.display="block"}}).catch(function(){})}}catch(e){}
 var WORKER_URL='';/* вставьте сюда адрес вашего Cloudflare Worker, например https://micn-ai.ваше-имя.workers.dev */
@@ -300,7 +306,7 @@ function dash(){var sum=S.tx.reduce(function(a,t){return a+t.a},0),k=by('k'),inc
   h+='<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:14px"><svg viewBox="0 0 120 120" width="150" height="150">'+arcs+'</svg><div>'+names.map(function(n,i){return '<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+cols[i%6]+'"></span> '+n+' '+Math.round(k[n]/sum*100)+'%</div>'}).join('')+'</div></div>'}
  else h+='<p style="color:var(--mu)">Добавьте траты, и здесь появится диаграмма.</p>';
  $('dash').innerHTML=h}
-var _r=render;render=function(){_r();dash()};
+var _r=render;render=function(){_r();dash();goals()};
 $('ls').onclick=function(e){var i=e.target.getAttribute&&e.target.getAttribute('data-del');if(i!=null){S.tx.splice(+i,1);save();render()}};
 $('exp').onclick=function(){var rows=[['Описание','Сумма','Категория','Оплата']].concat(S.tx.map(function(t){return[t.d,t.a,t.k,t.p]}));
  var csv='\ufeff'+rows.map(function(r){return r.map(function(c){var v=String(c);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'}).join(',')}).join('\r\n');
@@ -322,6 +328,13 @@ function refreshMe(){if(!WORKER_URL||!SB.url)return;api('/me').then(function(j){
 $('mng').onclick=function(){api('/portal').then(function(j){if(j.url)location.href=j.url}).catch(function(e){amsg(e&&e.code=='login'?errMsg(e):'Подписка не найдена.')})};
 $('out2').onclick=function(){try{localStorage.removeItem('micn_auth')}catch(e){}location.reload()};
 refreshMe();
+function goals(){S.goals=S.goals||[];
+ $('gl').innerHTML=S.goals.length?S.goals.map(function(g,i){var p=Math.min(100,Math.round(g.s/g.t*100)),left=Math.max(g.t-g.s,0);
+  return '<div style="margin-top:16px"><div class="it" style="border:0;padding-bottom:4px"><b>'+esc(g.n)+(p>=100?' ✅':'')+'</b><span>'+f(g.s)+' из '+f(g.t)+' ('+p+'%)</span></div><div class="bar" style="height:14px"><i style="width:'+p+'%;background:'+(p>=100?'var(--ac2)':'var(--ac)')+'"></i></div><div class="row"><input type="number" min="1" placeholder="Сколько добавить" id="gd'+i+'"><button class="g2" data-g="add" data-i="'+i+'">+ Пополнить</button><button class="g2" data-g="del" data-i="'+i+'">Удалить</button></div>'+(left>0?'<small style="color:var(--mu)">Осталось '+f(left)+'</small>':'<small style="color:var(--ac2)">Цель достигнута!</small>')+'</div>'}).join(''):'<p style="color:var(--mu)">Добавьте первую цель, например подушку безопасности на 1 месяц расходов.</p>'}
+$('gl').onclick=function(e){var a=e.target.getAttribute&&e.target.getAttribute('data-g');if(!a)return;var i=+e.target.getAttribute('data-i'),g=S.goals[i];if(!g)return;
+ if(a=='del')S.goals.splice(i,1);else{var v=num($('gd'+i).value);if(v<=0)return;g.s+=v}
+ save();goals()};
+$('gadd').onclick=function(){var n=$('gn').value.trim().slice(0,60),t=num($('gt').value),s=num($('gs').value);if(!n||t<=0)return;S.goals=S.goals||[];S.goals.push({n:n,t:t,s:s});['gn','gt','gs'].forEach(function(id){$(id).value=''});save();goals()};
 $('csend').onclick=send;$('cin').onkeydown=function(e){if(e.key=='Enter')send()};
 render();
 </script>
