@@ -202,7 +202,7 @@ $("add").onclick=function(){var a=+$("a").value;if(!a||a<=0)return;S.tx.push({d:
 $("clr").onclick=function(){S={inc:0,tx:[],goals:S.goals||[],sit:S.sit};save();render()};
 var ai=null,ctl=null;
 try{if(window.claude&&claude.use){claude.use("sample").then(function(s){if(s){ai=s;$("aiBox").style.display="block";$("tools").style.display="block"}}).catch(function(){})}}catch(e){}
-var WORKER_URL='';/* вставьте сюда адрес вашего Cloudflare Worker, например https://micn-ai.ваше-имя.workers.dev */
+var WORKER_URL=location.origin+'/api';/* вставьте сюда адрес вашего Cloudflare Worker, например https://micn-ai.ваше-имя.workers.dev */
 var SB={url:'',anon:'sb_publishable_hgNuA16DKTy5u-DvACKGtg_sqwD4WTr'};/* Supabase: Project URL и anon public key */
 function saveAuth(t,r,e){try{localStorage.setItem('micn_auth',JSON.stringify({t:t,r:r,exp:Date.now()+e*1000}))}catch(x){}}
 (function(){if(location.hash.indexOf('access_token=')>-1){var h=new URLSearchParams(location.hash.slice(1));saveAuth(h.get('access_token'),h.get('refresh_token'),+h.get('expires_in')||3600);history.replaceState(null,'',location.pathname+location.search)}})();
