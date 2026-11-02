@@ -120,6 +120,10 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <textarea id="dl" rows="3" style="margin-top:10px" placeholder="Долги, по одному в строке: название; остаток; ставка % в год; мин. платёж"></textarea>
 <div class="row" style="margin-top:8px"><input id="dx" type="number" placeholder="Доплата сверх минимума в месяц"><button class="g2" id="dbtn">📉 Долги</button><button class="g2" id="bbtn">💰 Бюджет</button></div>
 <div class="row" style="margin-top:8px"><input id="br" type="number" placeholder="Выручка в месяц"><input id="bv" type="number" placeholder="Переменные расходы"><input id="bf" type="number" placeholder="Постоянные расходы"><input id="bc" type="number" placeholder="Деньги на счёте"><button class="g2" id="bzbtn">🏢 Бизнес</button></div>
+<h3>🆘 Деньги кончились до зарплаты</h3>
+<div class="row"><input id="srm" type="number" min="0" placeholder="Сколько денег осталось"><input id="srd" type="number" min="1" max="60" placeholder="Дней до дохода"></div>
+<textarea id="srp" rows="2" style="margin-top:8px" placeholder="Обязательные платежи, по одному в строке: название; сумма; через сколько дней (например: аренда; 80000; 5)"></textarea>
+<div class="row" style="margin-top:8px"><button id="srg">🆘 Составить план</button></div>
 <div id="res"></div>
 </div>
 
@@ -377,6 +381,21 @@ $('lgo').onclick=function(){var d={type:$('lt').value,org:$('lorg').value.trim()
 $('lcp').onclick=function(){var t=$('lo'),ok=false;t.select();try{ok=document.execCommand('copy')}catch(e){}if(ok)lmsg('Скопировано.');else try{navigator.clipboard.writeText(t.value).then(function(){lmsg('Скопировано.')},function(){lmsg('Не удалось скопировать: выделите текст и нажмите Ctrl+C.')})}catch(e){lmsg('Не удалось скопировать: выделите текст и нажмите Ctrl+C.')}};
 $('ldl').onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+$('lo').value],{type:'text/plain;charset=utf-8'}));a.download='pismo.txt';a.click()};
 if(WORKER_URL)fetch(WORKER_URL.replace(/\/$/,'')+'/health').then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.aiConfigured===false){var e=$('sv');e.style.display='block';e.textContent='⚠️ AI на сервере не подключён: добавьте ANTHROPIC_API_KEY в Secrets и перезапустите проект.'}}).catch(function(){});
+function spark(ser){var W=300,H=90,mx=Math.max.apply(null,ser.concat([1])),n=ser.length;return '<svg viewBox="0 0 '+W+' '+(H+4)+'" style="width:100%;margin-top:8px"><polyline fill="none" style="stroke:var(--ac);stroke-width:2" points="'+ser.map(function(v,i){return Math.round(i/(n-1||1)*W)+','+Math.round(H-Math.max(v,0)/mx*H)}).join(' ')+'"/></svg><small style="color:var(--mu)">Остаток денег по дням, если держаться лимита.</small>'}
+$('srg').onclick=function(){
+ var money=num($('srm').value),days=Math.round(num($('srd').value));
+ if($('srm').value===''||days<1||days>60){$('res').innerHTML='<div class="tip w2">Укажите, сколько денег осталось и сколько дней до дохода (от 1 до 60).</div>';return}
+ var pays=$('srp').value.split('\n').map(function(l){var p=l.split(';');return{n:(p[0]||'').trim().slice(0,40)||'Платёж',a:num(p[1]),d:(p[2]!==undefined&&p[2].trim()!=='')?Math.max(Math.round(num(p[2])),0):0}}).filter(function(x){return x.a>0&&x.d<=days}).sort(function(a,b){return a.d-b.d});
+ var due=pays.reduce(function(s,x){return s+x.a},0),free=money-due,res=Math.max(free,0)*0.1,spend=Math.max(free-res,0)/days;
+ var k=by('k'),pause=(k['Подписки']||0)+(k['Развлечения']||0),st=[];
+ if(free<0)st.push('Не хватает '+f(-free)+' на обязательные платежи до дохода. Попросите банк, арендодателя или поставщика об отсрочке (раздел «Письма и заявления» ниже составит заявление). Не берите МФО и займы под высокий процент.');
+ else st.push('Лимит на день: '+f(spend)+', на неделю: '+f(spend*7)+'. Резерв '+f(res)+' не трогайте без крайней необходимости.');
+ st.push('Сначала оплачивайте: еда, жильё и коммуналка, лекарства, проезд до работы. Подписки и желания поставьте на паузу до получения денег.');
+ if(pays.length)st.push('Платежи до дохода: '+pays.map(function(x){return esc(x.n)+' — '+f(x.a)+(x.d?' (через '+x.d+' дн.)':' (сейчас)')}).join('; ')+'.');
+ if(pause>0)st.push('В вашем трекере подписки и развлечения занимают '+f(pause)+'. На время режима их лучше не оплачивать.');
+ var ser=[money-pays.filter(function(x){return x.d==0}).reduce(function(s,x){return s+x.a},0)];
+ for(var d=1;d<=days;d++){var b=ser[d-1]-spend-pays.filter(function(x){return x.d==d}).reduce(function(s,x){return s+x.a},0);ser.push(b)}
+ fin('🆘 План до зарплаты',[['Денег сейчас',f(money)],['Обязательные платежи до дохода',f(due)],['Свободно после платежей',f(free)],['Можно тратить в день',f(spend)],['Резерв на непредвиденное',f(res)]],st,spark(ser),'До зарплаты: осталось '+Math.round(money)+', дней '+days+', обязательные платежи '+Math.round(due)+', свободно '+Math.round(free)+(free<0?' (не хватает)':', лимит в день '+Math.round(spend)))};
 $('csend').onclick=send;$('cin').onkeydown=function(e){if(e.key=='Enter')send()};
 render();
 </script>
