@@ -136,6 +136,10 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <div class="row"><input id="srm" type="number" min="0" placeholder="Сколько денег осталось"><input id="srd" type="number" min="1" max="60" placeholder="Дней до дохода"></div>
 <textarea id="srp" rows="2" style="margin-top:8px" placeholder="Обязательные платежи, по одному в строке: название; сумма; через сколько дней (например: аренда; 80000; 5)"></textarea>
 <div class="row" style="margin-top:8px"><button id="srg">🆘 Составить план</button></div>
+<h3>🧪 Стресс-тест: что если я потеряю доход?</h3>
+<div class="row"><input id="stS" type="number" min="0" placeholder="Накопления сейчас"><input id="stE" type="number" min="0" placeholder="Нужные расходы в месяц (жильё, еда, платежи)"></div>
+<div class="row" style="margin-top:8px"><input id="stW" type="number" min="0" placeholder="Желания и подписки в месяц"><input id="stI" type="number" min="0" placeholder="Что останется: подработка, пособие (если есть)"></div>
+<div class="row" style="margin-top:8px"><button id="stg">🧪 Запустить стресс-тест</button></div>
 <div id="res"></div>
 </div>
 
@@ -177,7 +181,7 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <h3>⭐ Pro за донат</h3>
 <p style="margin:0;color:var(--mu)">Хотите Pro? Переведите сумму подписки по ссылке выше и в сообщении к донату укажите ваш email. После проверки платежа мы откроем вам Pro на 30 дней.</p>
 </div>
-<footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 3 ноября 2026</footer>
+<footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 5 ноября 2026</footer>
 </div>
 <script>
 var $=function(i){return document.getElementById(i)};
@@ -429,6 +433,26 @@ $('srg').onclick=function(){
  if(/[?&]sub=/.test(location.search))k=5;
  show(k>-1?k:0,false);
 })();
+function mo(x){return !isFinite(x)?'дефицита нет, расходы покрываются':(Math.floor(x*10)/10)+' мес. (≈'+Math.round(x*30)+' дн.)'}
+function lines2(a,b){var W=300,H=90,mx=Math.max.apply(null,a.concat(b).concat([1])),n=a.length;function pt(s,c){return '<polyline fill="none" style="stroke:'+c+';stroke-width:2" points="'+s.map(function(v,i){return Math.round(i/(n-1||1)*W)+','+Math.round(H-v/mx*H)}).join(' ')+'"/>'}
+ return '<svg viewBox="0 0 '+W+' '+(H+4)+'" style="width:100%;margin-top:8px">'+pt(a,'var(--ac)')+pt(b,'var(--ac2)')+'</svg><small style="color:var(--mu)">Остаток накоплений по месяцам. Фиолетовая: траты как сейчас. Зелёная: только необходимое.</small>'}
+$('stg').onclick=function(){
+ var sv=num($('stS').value),k=by('k'),E=num($('stE').value),Wn=num($('stW').value),R=num($('stI').value),src=false;
+ if($('stS').value===''){$('res').innerHTML='<div class="tip w2">Укажите, сколько у вас накоплений сейчас (можно 0).</div>';return}
+ if(!($('stE').value!==''&&E>0)){E=(k['Еда']||0)+(k['Жильё']||0)+(k['Транспорт']||0);src=true}
+ if($('stW').value==='')Wn=(k['Развлечения']||0)+(k['Подписки']||0)+(k['Прочее']||0);
+ if(!(E>0)){$('res').innerHTML='<div class="tip w2">Укажите нужные расходы в месяц: жильё, еда, транспорт, обязательные платежи.</div>';return}
+ var inc=S.inc||0,bA=E+Wn-R,bC=E-R,rA=bA>0?sv/bA:Infinity,rC=bC>0?sv/bC:Infinity,bB=E+Wn-(inc*0.5+R),rB=bB>0?sv/bB:Infinity,cushion=3*E,pc=Math.min(100,Math.round(sv/cushion*100));
+ var lvl=rA<1?'Критично: накоплений меньше чем на месяц.':rA<3?'Слабая подушка: хватит меньше чем на 3 месяца.':rA<6?'Нормально, но лучше довести запас до 6 месяцев.':'Хороший запас.';
+ var st=[lvl];
+ if(isFinite(rA)&&Wn>0&&isFinite(rC)&&rC>rA)st.push('Если сразу отказаться от желаний и подписок ('+f(Wn)+' в месяц), денег хватит на '+mo(rC)+' вместо '+mo(rA)+'.');
+ st.push(sv>=cushion?'Подушка на 3 месяца необходимых расходов ('+f(cushion)+') есть'+(rA<3?', но с текущими тратами деньги закончатся раньше.':'.'):'Для подушки на 3 месяца нужно '+f(cushion)+', не хватает '+f(cushion-sv)+'.'+(inc>0&&inc-E-Wn>0?' При откладывании '+f(inc-E-Wn)+' в месяц это займёт около '+Math.ceil((cushion-sv)/(inc-E-Wn))+' мес.':''));
+ st.push('Заранее продумайте: кому позвонить при потере дохода (банк, арендодатель, поставщики), чтобы просить отсрочку до просрочек. Раздел «Письма» подготовит заявление.');
+ var a=[],c=[];for(var i=0;i<=12;i++){a.push(bA>0?Math.max(sv-i*bA,0):sv);c.push(bC>0?Math.max(sv-i*bC,0):sv)}
+ var rows=[['Накопления',f(sv)],['Нужные расходы в месяц',f(E)+(src?' (из трекера)':'')],['Желания и подписки в месяц',f(Wn)],['Потеря всего дохода, траты как сейчас',mo(rA)],['Потеря всего дохода, только необходимое',mo(rC)]];
+ if(inc>0)rows.push(['Доход упал вдвое',mo(rB)]);
+ rows.push(['Подушка на 3 мес. (только необходимое)',pc+'% от '+f(cushion)]);
+ fin('🧪 Стресс-тест',rows,st,lines2(a,c),'Стресс-тест: накопления '+Math.round(sv)+', нужные расходы '+Math.round(E)+', желания '+Math.round(Wn)+', остаток дохода '+Math.round(R)+'; хватит при потере всего дохода: '+(isFinite(rA)?rA.toFixed(1)+' мес':'расходы покрыты')+', только необходимое: '+(isFinite(rC)?rC.toFixed(1)+' мес':'расходы покрыты')+', подушка на 3 мес закрыта на '+pc+'%')};
 $('csend').onclick=send;$('cin').onkeydown=function(e){if(e.key=='Enter')send()};
 render();
 </script>
