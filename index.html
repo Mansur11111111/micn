@@ -90,6 +90,12 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <div id="gl"></div>
 </div>
 
+<h2>💚 Индекс финансового здоровья</h2>
+<div class="c" id="hl">
+<div class="row"><input id="hs" type="number" min="0" placeholder="Накопления сейчас"><input id="hd" type="number" min="0" placeholder="Платежи по долгам в месяц"></div>
+<div id="hv"></div>
+</div>
+
 <h2>Финансовый отчёт</h2>
 <div class="c" id="rep"></div>
 
@@ -181,7 +187,7 @@ footer{text-align:center;color:var(--mu);font-size:13px;padding:30px 0}
 <h3>⭐ Pro за донат</h3>
 <p style="margin:0;color:var(--mu)">Хотите Pro? Переведите сумму подписки по ссылке выше и в сообщении к донату укажите ваш email. После проверки платежа мы откроем вам Pro на 30 дней.</p>
 </div>
-<footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 5 ноября 2026</footer>
+<footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 07.11.2026 · v2</footer>
 </div>
 <script>
 var $=function(i){return document.getElementById(i)};
@@ -347,7 +353,7 @@ function dash(){var sum=S.tx.reduce(function(a,t){return a+t.a},0),k=by('k'),inc
   h+='<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:14px"><svg viewBox="0 0 120 120" width="150" height="150">'+arcs+'</svg><div>'+names.map(function(n,i){return '<div><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+cols[i%6]+'"></span> '+n+' '+Math.round(k[n]/sum*100)+'%</div>'}).join('')+'</div></div>'}
  else h+='<p style="color:var(--mu)">Добавьте траты, и здесь появится диаграмма.</p>';
  $('dash').innerHTML=h}
-var _r=render;render=function(){_r();dash();goals()};
+var _r=render;render=function(){_r();dash();goals();health()};
 $('ls').onclick=function(e){var i=e.target.getAttribute&&e.target.getAttribute('data-del');if(i!=null){S.tx.splice(+i,1);save();render()}};
 $('exp').onclick=function(){var rows=[['Описание','Сумма','Категория','Оплата']].concat(S.tx.map(function(t){return[t.d,t.a,t.k,t.p]}));
  var csv='\ufeff'+rows.map(function(r){return r.map(function(c){var v=String(c);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'}).join(',')}).join('\r\n');
@@ -374,8 +380,8 @@ function goals(){S.goals=S.goals||[];
   return '<div style="margin-top:16px"><div class="it" style="border:0;padding-bottom:4px"><b>'+esc(g.n)+(p>=100?' ✅':'')+'</b><span>'+f(g.s)+' из '+f(g.t)+' ('+p+'%)</span></div><div class="bar" style="height:14px"><i style="width:'+p+'%;background:'+(p>=100?'var(--ac2)':'var(--ac)')+'"></i></div><div class="row"><input type="number" min="1" placeholder="Сколько добавить" id="gd'+i+'"><button class="g2" data-g="add" data-i="'+i+'">+ Пополнить</button><button class="g2" data-g="del" data-i="'+i+'">Удалить</button></div>'+(left>0?'<small style="color:var(--mu)">Осталось '+f(left)+'</small>':'<small style="color:var(--ac2)">Цель достигнута!</small>')+'</div>'}).join(''):'<p style="color:var(--mu)">Добавьте первую цель, например подушку безопасности на 1 месяц расходов.</p>'}
 $('gl').onclick=function(e){var a=e.target.getAttribute&&e.target.getAttribute('data-g');if(!a)return;var i=+e.target.getAttribute('data-i'),g=S.goals[i];if(!g)return;
  if(a=='del')S.goals.splice(i,1);else{var v=num($('gd'+i).value);if(v<=0)return;g.s+=v}
- save();goals()};
-$('gadd').onclick=function(){var n=$('gn').value.trim().slice(0,60),t=num($('gt').value),s=num($('gs').value);if(!n||t<=0)return;S.goals=S.goals||[];S.goals.push({n:n,t:t,s:s});['gn','gt','gs'].forEach(function(id){$(id).value=''});save();goals()};
+ save();goals();health()};
+$('gadd').onclick=function(){var n=$('gn').value.trim().slice(0,60),t=num($('gt').value),s=num($('gs').value);if(!n||t<=0)return;S.goals=S.goals||[];S.goals.push({n:n,t:t,s:s});['gn','gt','gs'].forEach(function(id){$(id).value=''});save();goals();health()};
 var LT={restructure:['Заявление о реструктуризации кредита','прошу рассмотреть возможность реструктуризации моей задолженности: уменьшения ежемесячного платежа и/или изменения графика платежей'],
 defer:['Заявление об отсрочке платежей','прошу предоставить мне отсрочку платежей на срок [УКАЖИТЕ СРОК] без начисления штрафов и пени'],
 rate:['Просьба о снижении процентной ставки','прошу рассмотреть возможность снижения процентной ставки по моему договору'],
@@ -453,6 +459,28 @@ $('stg').onclick=function(){
  if(inc>0)rows.push(['Доход упал вдвое',mo(rB)]);
  rows.push(['Подушка на 3 мес. (только необходимое)',pc+'% от '+f(cushion)]);
  fin('🧪 Стресс-тест',rows,st,lines2(a,c),'Стресс-тест: накопления '+Math.round(sv)+', нужные расходы '+Math.round(E)+', желания '+Math.round(Wn)+', остаток дохода '+Math.round(R)+'; хватит при потере всего дохода: '+(isFinite(rA)?rA.toFixed(1)+' мес':'расходы покрыты')+', только необходимое: '+(isFinite(rC)?rC.toFixed(1)+' мес':'расходы покрыты')+', подушка на 3 мес закрыта на '+pc+'%')};
+function cl(x){return Math.max(0,Math.min(1,x))}
+function health(){
+ var el=$('hv');if(!el)return;
+ if(document.activeElement!==$('hs'))$('hs').value=S.sav||'';
+ if(document.activeElement!==$('hd'))$('hd').value=S.dbt||'';
+ var inc=S.inc||0;
+ if(!inc||!S.tx.length){el.innerHTML='<p style="color:var(--mu)">Укажите доход и добавьте хотя бы одну трату во вкладке «Траты», и здесь появится ваш индекс.</p>';return}
+ var k=by('k'),sum=S.tx.reduce(function(a,t){return a+t.a},0),ess=(k['Еда']||0)+(k['Жильё']||0)+(k['Транспорт']||0),sav=S.sav||0,dbt=S.dbt||0,gs=S.goals||[];
+ var rate=(inc-sum)/inc,runway=ess>0?sav/ess:(sav>0?6:0),dr=dbt/inc,share=ess/inc,gp=gs.length?gs.reduce(function(a,g){return a+Math.min(g.s/g.t,1)},0)/gs.length:0;
+ var C=[cl(rate/0.2)*100,cl(runway/6)*100,cl(1-(dr-0.1)/0.4)*100,cl(1-(share-0.5)/0.4)*100,gs.length?gp*100:30],Wt=[25,25,20,20,10];
+ var score=Math.round(C.reduce(function(a,c,i){return a+c*Wt[i]/100},0));
+ var band=score<40?['Зона риска','#e5484d','🚨']:score<60?['Нестабильно','#f5a524','⚠️']:score<80?['Хорошо','#18c29c','🙂']:['Отлично','#16a34a','🌟'];
+ var Lg=Math.PI*80,dash=(score/100*Lg).toFixed(1);
+ var labels=[['Сбережения','норма '+Math.round(rate*100)+'%'],['Запас прочности',(Math.floor(runway*10)/10)+' мес. необходимого'],['Долговая нагрузка',Math.round(dr*100)+'% дохода'],['Нужные расходы',Math.round(share*100)+'% дохода'],['Цели',gs.length?gs.length+' шт., прогресс '+Math.round(gp*100)+'%':'целей нет']];
+ var tips=['Откладывайте хотя бы 20% дохода: сейчас '+Math.round(rate*100)+'%. Начните с 5% сразу после получения денег.','Копите запас до 6 месяцев необходимых расходов (сейчас '+(Math.floor(runway*10)/10)+' мес.).','Платежи по долгам выше 10% дохода: договоритесь с банком о реструктуризации и гасите самый дорогой долг первым.','Нужные расходы занимают '+Math.round(share*100)+'% дохода: проверьте аренду, тарифы и продукты, где можно сэкономить.','Поставьте цель во вкладке «Цели»: с ней проще копить.'];
+ var top=C.map(function(c,i){return{g:Wt[i]*(100-c)/100,t:tips[i]}}).sort(function(a,b){return b.g-a.g}).filter(function(x){return x.g>=1}).slice(0,2);
+ var h='<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:12px"><div style="text-align:center"><svg viewBox="0 0 200 118" width="200" height="118"><path d="M20 100 A80 80 0 0 1 180 100" fill="none" style="stroke:var(--bd);stroke-width:16;stroke-linecap:round"/><path d="M20 100 A80 80 0 0 1 180 100" fill="none" style="stroke:'+band[1]+';stroke-width:16;stroke-linecap:round" stroke-dasharray="'+dash+' '+Lg.toFixed(1)+'"/><text x="100" y="88" text-anchor="middle" style="font-size:38px;font-weight:800;fill:var(--tx)">'+score+'</text><text x="100" y="112" text-anchor="middle" style="font-size:12px;fill:var(--mu)">из 100</text></svg><div style="font-weight:700">'+band[2]+' '+band[0]+'</div></div><div style="flex:1 1 220px">'+C.map(function(c,i){return '<div style="font-size:14px">'+labels[i][0]+': <span style="color:var(--mu)">'+labels[i][1]+'</span><div class="bar"><i style="width:'+Math.round(c)+'%;background:'+(c>=70?'var(--ac2)':c>=40?'#f5a524':'#e5484d')+'"></i></div></div>'}).join('')+'</div></div>';
+ h+=top.length?'<h4 style="margin:12px 0 4px">Что поднимет балл сильнее всего</h4>'+top.map(function(x){return '<div class="tip">+'+Math.round(x.g)+' баллов: '+x.t+'</div>'}).join(''):'<div class="tip">Все показатели в хорошем состоянии. Поддерживайте привычки.</div>';
+ h+='<small style="color:var(--mu)">Индекс ориентировочный, это не кредитный рейтинг и не финансовая консультация.</small>';
+ el.innerHTML=h}
+$('hs').oninput=function(){S.sav=num(this.value);save();health()};
+$('hd').oninput=function(){S.dbt=num(this.value);save();health()};
 $('csend').onclick=send;$('cin').onkeydown=function(e){if(e.key=='Enter')send()};
 render();
 </script>
