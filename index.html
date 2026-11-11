@@ -458,6 +458,19 @@
     <section class="panel" id="tab-ai" role="tabpanel">
       <div class="tip" id="aiOff">Блоки AI появятся, если страница подключена к AI (версия на сервере или в Claude). Без AI калькуляторы, цели и письма-шаблоны работают как обычно.</div>
 
+      <!-- Подключение AI-сервера -->
+      <h2>⚙️ Подключение AI</h2>
+      <div class="c" id="srvBox">
+        <p class="note">Если у вас есть свой сервер с AI (Render, Replit), вставьте его адрес. Он сохранится только в этом браузере. Для всех посетителей адрес нужно вписать в assets/js/config.js.</p>
+        <div class="row">
+          <input id="srvUrl" placeholder="https://имя.onrender.com">
+          <button id="srvSave">Подключить</button>
+          <button class="g2" id="srvTest">Проверить</button>
+          <button class="g2" id="srvClear">Сбросить</button>
+        </div>
+        <div class="tip hidden mt10" id="srvMsg"></div>
+      </div>
+
       <!-- 🤖 Micn AI: составить финансовый отчёт -->
       <h2>🤖 Micn AI: составить финансовый отчёт</h2>
       <div class="c hidden" id="aiBox">
@@ -513,7 +526,7 @@
     </section>
     </main>
 
-    <footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 08.11.2026 · v4</footer>
+    <footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 11.11.2026 · v5</footer>
   </div>
 
   <script>
@@ -527,13 +540,20 @@
     //  - location.origin + '/api': если сайт запущен на своём сервере (Render, Replit).
     var WORKER_URL = '';
 
+    // Адрес, который вы подключили кнопкой в разделе «AI», важнее значения выше (хранится только в этом браузере).
+    (function () {
+        try {
+            var saved = localStorage.getItem('micn_worker');
+            if (saved) WORKER_URL = saved;
+        } catch (e) { }
+    })();
+
     // Вход по email (Supabase). Публичный ключ можно хранить на сайте, секретный нельзя.
     var SB = { url: '', anon: 'sb_publishable_hgNuA16DKTy5u-DvACKGtg_sqwD4WTr' }; /* Supabase: Project URL и anon public key */
 
     // Оплата вручную: впишите Kaspi и Telegram. Если пусто, показывается текст про донат.
     // Ссылка на донат лежит в index.html (кнопка «Поддержать проект»).
     var PAY = { price: '2 990 ₸', kaspi: '', tg: '', note: 'в комментарии укажите ваш email' }; /* впишите свои реквизиты: kaspi: номер телефона или карты, tg: @ваш_telegram */
-
 
     /* ============================================================
        Micn: Основа: состояние, сохранение и общие помощники
@@ -588,7 +608,6 @@
     function num(v) {
         return parseFloat(String(v || '').replace(/\s/g, '').replace(',', '.')) || 0;
     }
-
 
     /* ============================================================
        Micn: Траты и панель
@@ -734,7 +753,6 @@
         a.click();
     };
 
-
     /* ============================================================
        Micn: Цели с полосой прогресса
        Добавление целей, пополнение, удаление.
@@ -780,7 +798,6 @@
         save();
         goals();
     };
-
 
     /* ============================================================
        Micn: Доступ к AI, вход и ошибки
@@ -981,7 +998,6 @@
         }).catch(function () {
         });
 
-
     /* ============================================================
        Micn: AI: отчёт, инструменты и чат
        Кнопки «Составить отчёт», шесть AI-инструментов и чат.
@@ -1114,6 +1130,73 @@
             send();
     };
 
+    /* ============================================================
+       Micn: Подключение AI-сервера
+       Кнопки «Подключить», «Проверить» и «Сбросить» в разделе «AI».
+       Помогают подключить сайт на GitHub Pages к своему серверу (Render, Replit)
+       без правки файлов и объясняют, почему AI не работает.
+       ============================================================ */
+
+    // Приводит адрес к виду https://имя.onrender.com/api (для workers.dev остаётся как есть)
+    function srvNormalize(raw) {
+        var u = String(raw || '').trim().replace(/\/+$/, '');
+        if (!u) return '';
+        if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+        try {
+            var host = new URL(u).hostname;
+            if (!/\/api$/.test(u) && !/workers\.dev$/i.test(host)) u += '/api';
+            return u;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    // Показывает сообщение под кнопками
+    function srvMsg(text, bad) {
+        var el = $('srvMsg');
+        el.classList.remove('hidden');
+        el.classList.toggle('w2', !!bad);
+        el.textContent = text;
+    }
+
+    $('srvUrl').value = WORKER_URL || '';
+
+    $('srvSave').onclick = function () {
+        var u = srvNormalize($('srvUrl').value);
+        if (!u) { srvMsg('Вставьте адрес сервера, например https://имя.onrender.com', true); return; }
+        try { localStorage.setItem('micn_worker', u); } catch (e) { srvMsg('Не удалось сохранить адрес в этом браузере.', true); return; }
+        srvMsg('Адрес сохранён. Страница перезагрузится, блоки AI появятся через пару секунд.');
+        setTimeout(function () { location.reload(); }, 900);
+    };
+
+    $('srvClear').onclick = function () {
+        try { localStorage.removeItem('micn_worker'); } catch (e) { }
+        srvMsg('Адрес сброшен. Страница перезагрузится.');
+        setTimeout(function () { location.reload(); }, 700);
+    };
+
+    // Проверяет сервер и объясняет, что не так
+    $('srvTest').onclick = function () {
+        var u = srvNormalize($('srvUrl').value || WORKER_URL);
+        if (!u) { srvMsg('Сначала вставьте адрес сервера.', true); return; }
+        var btn = $('srvTest'), ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 70000);
+        btn.disabled = true;
+        srvMsg('Проверяю… Бесплатный сервер может «просыпаться» до минуты.');
+        fetch(u.replace(/\/$/, '') + '/health', { signal: ctl.signal })
+            .then(function (r) {
+                if (!r.ok) throw { status: r.status };
+                return r.json();
+            })
+            .then(function (j) {
+                if (j && j.aiConfigured === false) srvMsg('Сервер работает, но на нём не задан ключ ANTHROPIC_API_KEY. Добавьте его в настройках сервера и перезапустите.', true);
+                else srvMsg('✅ Сервер отвечает и AI подключён. Нажмите «Подключить», если ещё не сохраняли адрес.');
+            })
+            .catch(function (e) {
+                if (e && e.status) srvMsg('Сервер ответил ошибкой ' + e.status + '. Проверьте адрес: он должен вести на ваш сервер с AI.', true);
+                else srvMsg('Не удалось связаться с сервером. Что проверить: 1) адрес написан верно; 2) сервер не спит (подождите минуту и повторите); 3) на сервере задана переменная ALLOWED_ORIGIN с адресом этого сайта (например https://ваш-ник.github.io).', true);
+            })
+            .then(function () { clearTimeout(timer); btn.disabled = false; });
+    };
 
     /* ============================================================
        Micn: Калькуляторы
@@ -1451,7 +1534,6 @@
         fin('🧪 Стресс-тест', rows, st, lines2(a, c), 'Стресс-тест: накопления ' + Math.round(sv) + ', нужные расходы ' + Math.round(E) + ', желания ' + Math.round(Wn) + ', остаток дохода ' + Math.round(R) + '; хватит при потере всего дохода: ' + (isFinite(rA) ? rA.toFixed(1) + ' мес' : 'расходы покрыты') + ', только необходимое: ' + (isFinite(rC) ? rC.toFixed(1) + ' мес' : 'расходы покрыты') + ', подушка на 3 мес закрыта на ' + pc + '%');
     };
 
-
     /* ============================================================
        Micn: Письма и заявления
        Шаблоны писем банку и другим организациям; с AI письма пишутся подробнее.
@@ -1538,7 +1620,6 @@
         a.click();
     };
 
-
     /* ============================================================
        Micn: Подписка и донат
        Кнопки тарифов и текст про оплату. Реквизиты и ссылка на донат лежат в config.js.
@@ -1600,7 +1681,6 @@
         return 'Micn Pro, ' + PAY.price + ' в месяц. Переведите на Kaspi ' + PAY.kaspi + ' (' + PAY.note + '), затем напишите в Telegram ' + PAY.tg + ' и пришлите чек. Доступ откроют вручную после проверки платежа.';
     }
 
-
     /* ============================================================
        Micn: Аккаунт
        Вход по ссылке из письма, тариф и управление подпиской (работает при подключённом сервере).
@@ -1660,7 +1740,6 @@
 
     refreshMe();
 
-
     /* ============================================================
        Micn: Вкладки
        Переключение разделов, выбранная вкладка в адресе (#calc),
@@ -1701,7 +1780,6 @@
             note.style.display = $('tools').style.display === 'block' ? 'none' : 'block';
         }, 800);
     })();
-
 
     /* ============================================================
        Micn: Запуск
