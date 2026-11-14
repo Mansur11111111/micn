@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Micn: финансовый помощник. Учёт трат, калькуляторы, план «до зарплаты», письма банку и AI-советник.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:title" content="Micn: помощник, когда деньги кончаются до зарплаты">
+  <meta property="og:description" content="Бесплатно и без регистрации: план до зарплаты, на сколько хватит накоплений, калькулятор долгов и письмо банку.">
+  <meta name="twitter:card" content="summary">
   <title>Micn — финансовый помощник с AI</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E💸%3C/text%3E%3C/svg%3E">
   <style>
@@ -319,6 +324,12 @@
       padding: 30px 0;
     }
 
+    /* ---------- Кнопки «Поделиться» ---------- */
+    .share { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+    .share button { padding: 8px 12px; }
+    .share-label { color: var(--mu); font-size: 14px; }
+    .share-msg { color: var(--mu); font-size: 14px; }
+
     /* ---------- Утилиты ---------- */
     .mt0 { margin-top: 0; }
     .mt8 { margin-top: 8px; }
@@ -515,6 +526,13 @@
       </div>
       <div id="subMsg" class="tip hidden"></div>
 
+      <!-- Рассказать друзьям -->
+      <h2>📣 Рассказать друзьям</h2>
+      <div class="c">
+        <p class="note">Знаете человека, у которого деньги кончаются до зарплаты? Отправьте ему ссылку. В сообщение не попадают ваши суммы и данные.</p>
+        <div id="shareMain"></div>
+      </div>
+
       <!-- 💖 Поддержать проект -->
       <h2>💖 Поддержать проект</h2>
       <div class="c">
@@ -526,7 +544,7 @@
     </section>
     </main>
 
-    <footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 11.11.2026 · v5</footer>
+    <footer>Micn · прототип · данные хранятся только в вашем браузере · версия от 13.11.2026 · v6</footer>
   </div>
 
   <script>
@@ -554,6 +572,10 @@
     // Оплата вручную: впишите Kaspi и Telegram. Если пусто, показывается текст про донат.
     // Ссылка на донат лежит в index.html (кнопка «Поддержать проект»).
     var PAY = { price: '2 990 ₸', kaspi: '', tg: '', note: 'в комментарии укажите ваш email' }; /* впишите свои реквизиты: kaspi: номер телефона или карты, tg: @ваш_telegram */
+
+    // Статистика посетителей: впишите код GoatCounter (например, 'micn'), чтобы видеть, откуда приходят люди.
+    // Пусто = счётчик выключен и сайт ничего не отправляет наружу.
+    var GOATCOUNTER = '';
 
     /* ============================================================
        Micn: Основа: состояние, сохранение и общие помощники
@@ -1739,6 +1761,111 @@
     };
 
     refreshMe();
+
+    /* ============================================================
+       Micn: Поделиться
+       Кнопки «Поделиться» под результатами расчётов и карточка «Рассказать друзьям».
+       В текст не попадают суммы и личные данные, только название раздела.
+       ============================================================ */
+
+    var SHARE_TEXT = 'Micn: бесплатный помощник по деньгам. Считает, сколько тратить до зарплаты, на сколько хватит накоплений, и помогает составить письмо банку.';
+
+    // Ссылка на сайт с меткой источника (utm), без адреса вкладки и лишних параметров
+    function shareUrl(channel) {
+        var u = new URL(location.href);
+        u.hash = '';
+        u.search = '';
+        u.searchParams.set('utm_source', 'share');
+        u.searchParams.set('utm_medium', channel);
+        return u.toString();
+    }
+
+    // Кнопки: Telegram, WhatsApp, копирование и системное меню «Поделиться» (на телефонах)
+    function shareBar(text) {
+        var native = navigator.share ? '<button type="button" class="g2" data-share="native">Ещё…</button>' : '';
+        return '<div class="share" data-text="' + esc(text) + '">' +
+            '<span class="share-label">Поделиться:</span>' +
+            '<button type="button" class="g2" data-share="telegram">Telegram</button>' +
+            '<button type="button" class="g2" data-share="whatsapp">WhatsApp</button>' +
+            '<button type="button" class="g2" data-share="copy">Копировать ссылку</button>' +
+            native +
+            '<span class="share-msg" aria-live="polite"></span></div>';
+    }
+
+    // Копирует текст в буфер обмена (с запасным способом для старых браузеров)
+    function copyText(t, msgEl) {
+        function done(ok) {
+            msgEl.textContent = ok ? 'Ссылка скопирована' : 'Не удалось скопировать, выделите ссылку вручную';
+        }
+        function legacy() {
+            var a = document.createElement('textarea');
+            a.value = t;
+            a.setAttribute('readonly', '');
+            a.style.position = 'fixed';
+            a.style.opacity = '0';
+            document.body.appendChild(a);
+            a.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { }
+            document.body.removeChild(a);
+            done(ok);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(t).then(function () { done(true); }, legacy);
+        } else {
+            legacy();
+        }
+    }
+
+    // Один обработчик на всю страницу: работает и для кнопок, которые появляются позже
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-share]') : null;
+        if (!b) return;
+        var bar = b.closest('.share');
+        var text = bar.getAttribute('data-text') || SHARE_TEXT;
+        var channel = b.getAttribute('data-share');
+        var url = shareUrl(channel);
+        var msg = bar.querySelector('.share-msg');
+        if (channel === 'telegram') {
+            window.open('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text), '_blank', 'noopener');
+        } else if (channel === 'whatsapp') {
+            window.open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + url), '_blank', 'noopener');
+        } else if (channel === 'native') {
+            navigator.share({ title: 'Micn', text: text, url: url }).catch(function () { });
+        } else {
+            copyText(text + ' ' + url, msg);
+        }
+    });
+
+    // Под каждым результатом расчёта добавляем кнопки «Поделиться» (название раздела без цифр)
+    var _fin = fin;
+    fin = function (title) {
+        var r = _fin.apply(this, arguments);
+        var name = String(title || '').replace(/^[^\p{L}]+/u, '');
+        $('res').insertAdjacentHTML('beforeend', shareBar('Посчитал на Micn («' + name + '»). Бесплатно, без регистрации.'));
+        return r;
+    };
+
+    // Карточка «Рассказать друзьям» на вкладке «Подписка»
+    $('shareMain').innerHTML = shareBar(SHARE_TEXT);
+
+    /* ============================================================
+       Micn: Статистика посетителей (необязательно)
+       По умолчанию выключена. Чтобы включить, впишите код счётчика GoatCounter в config.js.
+       Счётчик не использует cookies. Условия и правила сервиса проверьте на его сайте.
+       ============================================================ */
+
+    // Подключает счётчик GoatCounter по коду (например, «micn» для micn.goatcounter.com)
+    function loadAnalytics(code) {
+        if (!/^[a-z0-9-]+$/i.test(code || '')) return;
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://gc.zgo.at/count.js';
+        s.setAttribute('data-goatcounter', 'https://' + code + '.goatcounter.com/count');
+        document.head.appendChild(s);
+    }
+
+    loadAnalytics(GOATCOUNTER);
 
     /* ============================================================
        Micn: Вкладки
